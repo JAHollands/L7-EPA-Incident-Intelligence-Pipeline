@@ -1,0 +1,20 @@
+project:
+  name: incident-intelligence-pipeline
+  environment: dev
+
+source:
+  api_base_url: "https://incidents.j-hollands.workers.dev/"
+  incident_path: "api/now/table/incident"
+  page_size: 1000
+  max_records: 10000
+
+storage:
+  root: ".local/data"
+  bronze: ".local/data/bronze"
+  silver: ".local/data/silver"
+  gold: ".local/data/gold"
+  model: ".local/data/model"
+
+runtime:
+  use_local_cache: true
+  refresh_from_source: false
