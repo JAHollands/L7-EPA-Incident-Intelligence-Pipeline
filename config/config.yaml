@@ -18,3 +18,4 @@ storage:
 runtime:
   use_local_cache: true
   refresh_from_source: false
+  use_env_proxy: false
