@@ -9,11 +9,12 @@ source:
   max_records: 10000
 
 storage:
-  root: ".local/data"
-  bronze: ".local/data/bronze"
-  silver: ".local/data/silver"
-  gold: ".local/data/gold"
-  model: ".local/data/model"
+  minio:
+    endpoint: "localhost:9000"
+    secure: false
+    bucket: "incident-pipeline"
+    prefix_root: "bronze"
+    env_file: "docker/.env"
 
 runtime:
   use_local_cache: true
