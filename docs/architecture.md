@@ -1,6 +1,3 @@
-# Target architecture (local “cloud simulator”)
-
-```mermaid
 flowchart LR
   %% ============== Source ==============
   subgraph Source
@@ -8,8 +5,8 @@ flowchart LR
   end
 
   %% ============== Platform ==============
-  subgraph Platform[Local Cloud Simulator (Docker Compose)]
-    ORCH[Orchestrator (Prefect/Airflow)]
+  subgraph Platform["Local Cloud Simulator (Docker Compose)"]
+    ORCH[Orchestrator (Airflow)]
     OBJ[(Object Storage: MinIO)]
     META[(Postgres: run state + metadata)]
     MLF[(MLflow: tracking + model registry)]
@@ -17,7 +14,7 @@ flowchart LR
   end
 
   %% ============== Data ==============
-  subgraph Data[Medallion]
+  subgraph Data["Medallion"]
     BRZ[Bronze: raw JSON by run_id/date]
     SLV[Silver: curated Parquet (upserted)]
     GLD[Gold: feature sets per task]
@@ -29,7 +26,6 @@ flowchart LR
   ORCH --> META
 
   OBJ --> BRZ --> SLV --> GLD
-
   GLD --> MLF --> SCR
   GLD --> DRIFT
   SCR --> OBJ
