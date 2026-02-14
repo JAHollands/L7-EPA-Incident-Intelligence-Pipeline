@@ -1,29 +1,35 @@
+# Target architecture (local “cloud simulator”)
+
+```mermaid
 flowchart LR
+  %% ============== Source ==============
   subgraph Source
     API[Incident API (FastAPI)]
   end
 
+  %% ============== Platform ==============
   subgraph Platform[Local Cloud Simulator (Docker Compose)]
-    Orchestrator[Orchestrator (Prefect/Airflow)]
-    Store[(Object Storage: MinIO or Azurite)]
-    Meta[(Postgres: Run state + metadata)]
-    MLflow[(MLflow: Tracking + Model Registry)]
-    Monitor[Drift Reports (Evidently HTML)]
+    ORCH[Orchestrator (Prefect/Airflow)]
+    OBJ[(Object Storage: MinIO)]
+    META[(Postgres: run state + metadata)]
+    MLF[(MLflow: tracking + model registry)]
+    DRIFT[Drift reports (Evidently HTML)]
   end
 
+  %% ============== Data ==============
   subgraph Data[Medallion]
-    Bronze[Bronze: Raw JSON by run_id/date]
-    Silver[Silver: Curated Parquet (upserted)]
-    Gold[Gold: Feature sets per task]
-    Scores[Scores: Predictions + recommendations]
+    BRZ[Bronze: raw JSON by run_id/date]
+    SLV[Silver: curated Parquet (upserted)]
+    GLD[Gold: feature sets per task]
+    SCR[Scores: predictions + recommendations]
   end
 
-  API --> Orchestrator
-  Orchestrator --> Store
-  Orchestrator --> Meta
+  API --> ORCH
+  ORCH --> OBJ
+  ORCH --> META
 
-  Store --> Bronze --> Silver --> Gold
-  Gold --> MLflow
-  MLflow --> Scores
-  Gold --> Monitor
-  Scores --> Store
+  OBJ --> BRZ --> SLV --> GLD
+
+  GLD --> MLF --> SCR
+  GLD --> DRIFT
+  SCR --> OBJ
