@@ -7,3 +7,5 @@ venv/
 env/
 ENV/
 docker/.env
+logs/
+plugins/

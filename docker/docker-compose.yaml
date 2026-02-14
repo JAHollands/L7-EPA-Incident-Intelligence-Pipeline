@@ -44,6 +44,77 @@ services:
       - "5000:5000"
     command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000"]
 
+  # Airflow initialisation
+  airflow-init:
+    image: apache/airflow:2.9.3
+    container_name: incident-airflow-init
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    command:
+      - bash
+      - -lc
+      - >
+          pip install -q psycopg2-binary
+          && airflow db migrate
+          && airflow users create
+          --username "${AIRFLOW_USER_NAME}"
+          --password "${AIRFLOW_PASSWORD}"
+          --firstname "${AIRFLOW_USER_FIRSTNAME}"
+          --lastname "${AIRFLOW_USER_LASTNAME}"
+          --role Admin
+          --email "${AIRFLOW_USER_EMAIL}"
+          || true
+
+  # Airflow service
+  airflow-webserver:
+    image: apache/airflow:2.9.3
+    container_name: incident-airflow-web
+    depends_on:
+      - postgres
+      - airflow-init
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+      AIRFLOW__WEBSERVER__WORKERS: "1"
+    volumes:
+      - ../dags:/opt/airflow/dags
+      - ../logs:/opt/airflow/logs
+      - ../plugins:/opt/airflow/plugins
+    ports:
+      - "8080:8080"
+    command: >
+      bash -lc "pip install -q psycopg2-binary && airflow webserver"
+
+# Airflow scheduler
+  airflow-scheduler:
+    image: apache/airflow:2.9.3
+    container_name: incident-airflow-scheduler
+    depends_on:
+      - postgres
+      - airflow-init
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ../dags:/opt/airflow/dags
+      - ../logs:/opt/airflow/logs
+      - ../plugins:/opt/airflow/plugins
+    command: >
+      bash -lc "pip install -q psycopg2-binary && airflow scheduler"
+
 
 volumes:
   postgres_data:
