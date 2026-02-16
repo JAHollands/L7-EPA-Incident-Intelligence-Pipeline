@@ -160,7 +160,7 @@ def run_ingestion(config_path: str = "config/config.yaml") -> tuple[str, int, st
 
     env = load_env_file(env_file)
 
-    # Create client with credentials from docker/.env.
+    # Create authd client with credentials from docker/.env.
     minio_client = Minio(
         minio_endpoint,
         access_key=env["MINIO_ROOT_USER"],
