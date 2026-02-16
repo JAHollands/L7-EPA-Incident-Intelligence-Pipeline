@@ -1,5 +1,6 @@
 import io
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -192,7 +193,7 @@ def run_transformation(config_path: str = "config/config.yaml") -> tuple[str, in
 
     # Read storage connection and target settings from config.
     minio_cfg = cfg["storage"]["minio"]
-    minio_endpoint = minio_cfg["endpoint"]
+    minio_endpoint = os.getenv("MINIO_ENDPOINT", minio_cfg["endpoint"])
     minio_secure = bool(minio_cfg.get("secure", False))
     bucket = minio_cfg["bucket"]
     prefix_root = minio_cfg.get("prefix_root", "bronze")

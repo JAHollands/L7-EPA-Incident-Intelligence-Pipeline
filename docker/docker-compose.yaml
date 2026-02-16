@@ -56,6 +56,12 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MINIO_ENDPOINT: "minio:9000"
+    volumes:
+      - ../dags:/opt/airflow/dags
+      - ../logs:/opt/airflow/logs
+      - ../plugins:/opt/airflow/plugins
+      - ..:/opt/airflow/project
     command:
       - bash
       - -lc
@@ -86,6 +92,7 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
       AIRFLOW__WEBSERVER__WORKERS: "1"
+      MINIO_ENDPOINT: "minio:9000"
     volumes:
       - ../dags:/opt/airflow/dags
       - ../logs:/opt/airflow/logs
@@ -109,6 +116,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MINIO_ENDPOINT: "minio:9000"
     volumes:
       - ../dags:/opt/airflow/dags
       - ../logs:/opt/airflow/logs

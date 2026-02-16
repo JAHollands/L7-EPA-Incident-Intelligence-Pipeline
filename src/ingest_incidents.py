@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import io
 import json
+import os
 from pathlib import Path
 
 import requests
@@ -151,7 +152,7 @@ def run_ingestion(config_path: str = "config/config.yaml") -> tuple[str, int, st
 
     # Read MinIO connection and target settings from config.
     minio_cfg = cfg["storage"]["minio"]
-    minio_endpoint = minio_cfg["endpoint"]
+    minio_endpoint = os.getenv("MINIO_ENDPOINT", minio_cfg["endpoint"])
     minio_secure = bool(minio_cfg.get("secure", False))
     bronze_bucket = minio_cfg["bucket"]
     prefix_root = minio_cfg.get("prefix_root", "bronze")
