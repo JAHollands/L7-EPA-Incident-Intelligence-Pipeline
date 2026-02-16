@@ -90,6 +90,7 @@ services:
       - ../dags:/opt/airflow/dags
       - ../logs:/opt/airflow/logs
       - ../plugins:/opt/airflow/plugins
+      - ..:/opt/airflow/project
     ports:
       - "8080:8080"
     command: >
@@ -112,6 +113,7 @@ services:
       - ../dags:/opt/airflow/dags
       - ../logs:/opt/airflow/logs
       - ../plugins:/opt/airflow/plugins
+      - ..:/opt/airflow/project
     command: >
       bash -lc "pip install -q psycopg2-binary && airflow scheduler"
 
