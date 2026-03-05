@@ -40,20 +40,20 @@ def load_silver(client: Minio, bucket: str, object_name: str) -> pd.DataFrame:
 # Apply training quality filters
 def filter_silver_for_training(silver_df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     # Define required columns and check they are present
-    required_cols = [
+    core_required = [
         "sys_id",
         "sys_updated_on",
-        "short_description",
-        "description",
-        "active",
         "state",
         "assignment_group",
     ]
-    missing_cols = [col for col in required_cols if col not in silver_df.columns]
+    text_cols = ["short_description", "description"]
+    required_present = core_required + text_cols
+
+    missing_cols = [col for col in required_present if col not in silver_df.columns]
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")
 
-    # Count open/closed and active true/false, then keep only closed/completed incidents
+    # Keep only closed/completed incidents
     state_norm = silver_df["state"].astype(str).str.strip().str.lower()
 
     keep_mask = state_norm.isin(["closed", "completed"])
@@ -64,17 +64,22 @@ def filter_silver_for_training(silver_df: pd.DataFrame) -> tuple[pd.DataFrame, l
     silver_filtered_df = silver_filtered_df.loc[~duplicate_mask].copy()
 
     # Remove rows with null/blank values in required training columns
-    required_view = silver_filtered_df[required_cols].copy()
-    null_or_blank = required_view.isna()
+    required_view = silver_filtered_df.copy()
 
-    # Treat whitespace only strings as null/ blank
-    for col in required_cols:
-        null_or_blank[col] = null_or_blank[col] | required_view[col].astype(str).str.strip().eq("")
+    # core missing/blank
+    missing_core = required_view[core_required].isna().any(axis=1)
+    for col in core_required:
+        missing_core = missing_core | required_view[col].astype(str).str.strip().eq("")
 
-    rows_with_missing_required = null_or_blank.any(axis=1)
-    silver_filtered_df = silver_filtered_df.loc[~rows_with_missing_required].copy()
+    # Drop a row if both text fields are blank, otherwise keep
+    short_blank = required_view["short_description"].fillna("").astype(str).str.strip().eq("")
+    desc_blank = required_view["description"].fillna("").astype(str).str.strip().eq("")
+    missing_text = short_blank & desc_blank
 
-    return silver_filtered_df, required_cols
+    drop_mask = missing_core | missing_text
+    silver_filtered_df = silver_filtered_df.loc[~drop_mask].copy()
+
+    return silver_filtered_df, required_present
 
 
 # Build model text feature and clean/fold labels
@@ -238,7 +243,7 @@ def write_dataset_card(
 {preview_lines}
 
 ## Split rules
-- 80/10/10 stratified split on label_id
+- 80/10/10 split on label_id
 - random_state: {random_state}
 
 ## Inference input contract
