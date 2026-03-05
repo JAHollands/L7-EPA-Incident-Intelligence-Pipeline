@@ -82,7 +82,7 @@ def build_features_and_labels(
     silver_filtered_df: pd.DataFrame,
     min_class_count: int = 20,
     manual_review_group: str = "manual_review_group",
-) -> tuple[pd.DataFrame, list[str], dict, dict]:
+) -> tuple[pd.DataFrame, list[str], dict, dict, int, int]:
     # Work on a copy so we keep the filtered source frame as is for reference
     df = silver_filtered_df.copy()
 
@@ -108,7 +108,9 @@ def build_features_and_labels(
     label_to_id = {c: i for i, c in enumerate(classes)}
     id_to_label = {i: c for c, i in label_to_id.items()}
     df["label_id"] = df["label_final"].map(label_to_id).astype(int)
-    return df, classes, label_to_id, id_to_label
+    rare_class_count = int(len(rare))
+    rare_mapped_row_count = int((df["label_final"] == manual_review_group).sum())
+    return df, classes, label_to_id, id_to_label, rare_class_count, rare_mapped_row_count
 
 
 # Create train/validation/test splits
@@ -154,8 +156,6 @@ def write_gold_artifacts(
     valid_df: pd.DataFrame,
     test_df: pd.DataFrame,
     label_mapping: dict,
-    random_state: int,
-    dataset_version: str,
 ) -> None:
     if not client.bucket_exists(bucket):
         client.make_bucket(bucket)
@@ -186,39 +186,73 @@ def write_gold_artifacts(
         content_type="application/json",
     )
 
-    # Document features and label policy alongside the dataset
-    feature_dictionary = """# Feature dictionary (Gold training dataset)
 
-## Feature
-- text: short_description + "\\n" + description (stripped)
+# Write one lean dataset card for feature/label/split/inference docs
+def write_dataset_card(
+    client: Minio,
+    bucket: str,
+    gold_training_prefix: str,
+    dataset_version: str,
+    silver_bucket: str,
+    silver_object: str,
+    created_utc: str,
+    total_rows: int,
+    train_rows: int,
+    valid_rows: int,
+    test_rows: int,
+    class_count: int,
+    rare_class_count: int,
+    rare_mapped_row_count: int,
+    random_state: int,
+    min_class_count: int,
+    manual_review_group: str,
+    id_to_label: dict,
+) -> None:
+    label_preview = sorted(id_to_label.items(), key=lambda x: x[0])[:20]
+    preview_lines = "\n".join([f"| {label_id} | {label_name} |" for label_id, label_name in label_preview])
 
-## Label
-- label_final: cleaned assignment_group; rare classes mapped to manual_review_group
-- label_id: integer id from label_mapping.json
-"""
-    feature_dictionary_bytes = feature_dictionary.encode("utf-8")
-    feature_dictionary_object = f"{gold_training_prefix}/feature_dictionary.md"
-    client.put_object(
-        bucket_name=bucket,
-        object_name=feature_dictionary_object,
-        data=io.BytesIO(feature_dictionary_bytes),
-        length=len(feature_dictionary_bytes),
-        content_type="text/markdown",
-    )
+    dataset_card = f"""# Dataset card
 
-    # Record split settings used to generate this dataset version
-    split_rules = f"""# Split rules
+## Overview
+- dataset_version: {dataset_version}
+- source_silver_key: s3://{silver_bucket}/{silver_object}
+- created_utc: {created_utc}
+- rows_total: {total_rows}
+- split_sizes: train={train_rows}, valid={valid_rows}, test={test_rows}
+- class_count: {class_count}
+- rare_class_count: {rare_class_count}
+- rare_mapped_count: {rare_mapped_row_count}
+
+## Features (Feature dictionary)
+- text = short_description + "\\n" + description (fillna -> ""; strip)
+
+## Label (Label dictionary)
+- source field: assignment_group
+- clean rule: strip whitespace
+- rare class policy: labels with < {min_class_count} records -> {manual_review_group}
+- full mapping lives in label_mapping.json
+
+### Label preview (first 20)
+| label_id | label_name |
+|---:|---|
+{preview_lines}
+
+## Split rules
 - 80/10/10 stratified split on label_id
 - random_state: {random_state}
-- dataset_version: {dataset_version}
+
+## Inference input contract
+- required: at least one of short_description or description
+- preprocessing: text = short_description + "\\n" + description (fillna -> ""; strip)
 """
-    split_rules_bytes = split_rules.encode("utf-8")
-    split_rules_object = f"{gold_training_prefix}/split_rules.md"
+
+    dataset_card_bytes = dataset_card.encode("utf-8")
+    dataset_card_object = f"{gold_training_prefix}/dataset_card.md"
     client.put_object(
         bucket_name=bucket,
-        object_name=split_rules_object,
-        data=io.BytesIO(split_rules_bytes),
-        length=len(split_rules_bytes),
+        object_name=dataset_card_object,
+        data=io.BytesIO(dataset_card_bytes),
+        length=len(dataset_card_bytes),
         content_type="text/markdown",
     )
 
@@ -250,7 +284,20 @@ def run_gold_transformation(config_path: str = "config/config.yaml") -> tuple[st
     silver_df = load_silver(client=client, bucket=bucket, object_name=silver_object)
 
     silver_filtered_df, _ = filter_silver_for_training(silver_df)
-    df, classes, label_to_id, id_to_label = build_features_and_labels(silver_filtered_df)
+    min_class_count = 20
+    manual_review_group = "manual_review_group"
+    (
+        df,
+        classes,
+        label_to_id,
+        id_to_label,
+        rare_class_count,
+        rare_mapped_row_count,
+    ) = build_features_and_labels(
+        silver_filtered_df,
+        min_class_count=min_class_count,
+        manual_review_group=manual_review_group,
+    )
 
     random_state = 42
     train_df, valid_df, test_df = split_gold_dataset(df=df, random_state=random_state)
@@ -263,8 +310,8 @@ def run_gold_transformation(config_path: str = "config/config.yaml") -> tuple[st
         "dataset_version": dataset_version,
         "label_field_source": "assignment_group",
         "label_field_final": "label_final",
-        "manual_review_group": "manual_review_group",
-        "min_class_count": 20,
+        "manual_review_group": manual_review_group,
+        "min_class_count": min_class_count,
         "classes": classes,
         "label_to_id": label_to_id,
         "id_to_label": id_to_label,
@@ -279,8 +326,27 @@ def run_gold_transformation(config_path: str = "config/config.yaml") -> tuple[st
         valid_df=valid_df,
         test_df=test_df,
         label_mapping=label_mapping,
-        random_state=random_state,
+    )
+
+    write_dataset_card(
+        client=client,
+        bucket=bucket,
+        gold_training_prefix=gold_training_prefix,
         dataset_version=dataset_version,
+        silver_bucket=bucket,
+        silver_object=silver_object,
+        created_utc=datetime.now(timezone.utc).isoformat(),
+        total_rows=len(df),
+        train_rows=len(train_df),
+        valid_rows=len(valid_df),
+        test_rows=len(test_df),
+        class_count=len(classes),
+        rare_class_count=rare_class_count,
+        rare_mapped_row_count=rare_mapped_row_count,
+        random_state=random_state,
+        min_class_count=min_class_count,
+        manual_review_group=manual_review_group,
+        id_to_label=id_to_label,
     )
 
     output_uri = f"s3://{bucket}/{gold_training_prefix}"
