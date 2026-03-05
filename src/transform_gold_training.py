@@ -187,7 +187,7 @@ def write_gold_artifacts(
     )
 
 
-# Write one lean dataset card for feature/label/split/inference docs
+# Write a dataset card for feature/label/split/inference docs
 def write_dataset_card(
     client: Minio,
     bucket: str,
