@@ -274,7 +274,9 @@ def run_gold_transformation(config_path: str = "config/config.yaml") -> tuple[st
     minio_endpoint = os.getenv("MINIO_ENDPOINT", minio_cfg["endpoint"])
     minio_secure = bool(minio_cfg.get("secure", False))
     bucket = minio_cfg["bucket"]
-    env_path = minio_cfg.get("env_file", "docker/.env")
+    env_path = minio_cfg["env_file"]
+    silver_object = minio_cfg["silver_object"]
+    gold_training_prefix_root = minio_cfg["gold_training_prefix_root"].rstrip("/")
     env_file = Path(env_path) if Path(env_path).is_absolute() else repo_root / env_path
 
     env = load_env_file(env_file)
@@ -285,7 +287,6 @@ def run_gold_transformation(config_path: str = "config/config.yaml") -> tuple[st
         secure=minio_secure,
     )
 
-    silver_object = "silver/incidents/incidents.parquet"
     silver_df = load_silver(client=client, bucket=bucket, object_name=silver_object)
 
     silver_filtered_df, _ = filter_silver_for_training(silver_df)
@@ -308,7 +309,7 @@ def run_gold_transformation(config_path: str = "config/config.yaml") -> tuple[st
     train_df, valid_df, test_df = split_gold_dataset(df=df, random_state=random_state)
 
     dataset_version = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    gold_training_prefix = f"gold/training/{dataset_version}"
+    gold_training_prefix = f"{gold_training_prefix_root}/{dataset_version}"
 
     cols = ["sys_id", "sys_updated_on", "text", "label_final", "label_id"]
     label_mapping = {
