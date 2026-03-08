@@ -14,7 +14,7 @@ storage:
     secure: false
     bucket: "incident-pipeline"
     prefix_root: "bronze"
-    env_file: "docker/.env"
+    env_file: "../docker/.env"
     silver_object: "silver/incidents/incidents.parquet"
     gold_training_prefix_root: "gold/training"
 
