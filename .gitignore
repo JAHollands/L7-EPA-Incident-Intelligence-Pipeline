@@ -9,4 +9,6 @@ ENV/
 docker/.env
 logs/
 plugins/
-notebooks/outputs
+notebooks/outputs/
+notebooks/artifacts/
+notebooks/artefacts/
